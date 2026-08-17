@@ -1,0 +1,34 @@
+function instalarTriggers() {
+  const triggers = ScriptApp.getProjectTriggers();
+  triggers.forEach(t => ScriptApp.deleteTrigger(t));
+
+  ScriptApp.newTrigger('procesarSolicitud')
+    .forSpreadsheet(CONFIG.ID_HOJA_MAESTRA)
+    .onFormSubmit()
+    .create();
+
+  ScriptApp.newTrigger('revisarPendientes')
+    .timeBased()
+    .everyDays(1)
+    .atHour(8)
+    .inTimezone('America/Bogota')
+    .create();
+
+  ScriptApp.newTrigger('generarReporteMensual')
+    .timeBased()
+    .onMonthDay(1)
+    .atHour(9)
+    .inTimezone('America/Bogota')
+    .create();
+
+  LoggerService.info('instalarTriggers', null, 'Triggers instalados');
+}
+
+function revisarPendientes() {
+  const pendientes = SheetsService.obtenerPendientes(CONFIG.RECORDATORIO_DIAS_UMBRAL);
+  pendientes.forEach(s => GmailService.enviarRecordatorio(s));
+}
+
+function generarReporteMensual() {
+  LoggerService.info('generarReporteMensual', null, 'Reporte ejecutado');
+}
