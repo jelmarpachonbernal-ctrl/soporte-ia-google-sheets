@@ -1,0 +1,29 @@
+const GEMINI_API_KEY = "------------------------------------------------------------------------------"; 
+
+function GEMINI_ACCION(prompt) {
+  const model = "gemini-2.5-flash";
+  const url = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + GEMINI_API_KEY;
+  
+  const payload = {
+    contents: [
+      { role: "user", parts: [ { text: String(prompt) } ] }
+    ]
+  };
+  
+  const options = {
+    method: "post",
+    contentType: "application/json",
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  };
+  
+  const response = UrlFetchApp.fetch(url, options);
+  const json = JSON.parse(response.getContentText());
+  
+  try {
+    const output = json.candidates[0].content.parts[0].text;
+    return String(output);
+  } catch (e) {
+    return "Error: " + JSON.stringify(json);
+  }
+}
