@@ -1,0 +1,30 @@
+const LoggerService = {
+  info: function(funcion, idCorr, mensaje) {
+    _log('INFO', funcion, idCorr, mensaje);
+  },
+  warn: function(funcion, idCorr, mensaje) {
+    _log('WARN', funcion, idCorr, mensaje);
+  },
+  error: function(funcion, idCorr, err) {
+    _log('ERROR', funcion, idCorr, err.toString());
+  },
+  debug: function(funcion, idCorr, mensaje) {
+    _log('DEBUG', funcion, idCorr, mensaje);
+  }
+};
+
+function _log(nivel, funcion, idCorr, mensaje) {
+  const ts = new Date();
+  const usuario = Session.getActiveUser().getEmail();
+  console.log({ nivel, funcion, idCorr, usuario, mensaje, ts });
+
+  try {
+    const ss = SpreadsheetApp.openById(CONFIG.ID_HOJA_MAESTRA);
+    const hoja = ss.getSheetByName('03-LogAuditoria');
+    if (hoja) {
+      hoja.appendRow([ts, usuario, funcion, idCorr || '', nivel, mensaje]);
+    }
+  } catch (e) {
+    console.error('Error escribiendo en auditoría', e);
+  }
+}
