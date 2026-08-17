@@ -1,0 +1,28 @@
+const DocumentService = {
+  generarActa: function(s) {
+    const plantillaId = CONFIG.ID_PLANTILLA_ACTA;
+    const copiaId = DriveApp.getFileById(plantillaId).makeCopy().getId();
+    const doc = DocumentApp.openById(copiaId);
+    const body = doc.getBody();
+
+    body.replaceText('{{id_solicitud}}', s.id);
+    body.replaceText('{{nombre_solicitante}}', s.nombre);
+    body.replaceText('{{tipo_solicitud}}', s.tipo);
+    body.replaceText('{{fecha_inicio}}', String(s.fechaInicio));
+    body.replaceText('{{fecha_fin}}', String(s.fechaFin));
+    body.replaceText('{{monto}}', '$' + s.monto.toLocaleString('es-CO'));
+    body.replaceText('{{fecha_aprobacion}}', Utilities.formatDate(new Date(), 'America/Bogota', 'dd/MM/yyyy'));
+    body.replaceText('{{nombre_aprobador}}', s.aprobadorNombre || '');
+
+    doc.setName('Acta_' + s.id + '_' + Utilities.formatDate(new Date(), 'America/Bogota', 'yyyyMMdd'));
+    doc.saveAndClose();
+
+    const pdfBlob = DriveApp.getFileById(copiaId).getAs('application/pdf');
+    const carpeta = DriveApp.getFolderById(CONFIG.ID_CARPETA_PDF);
+    const archivoPdf = carpeta.createFile(pdfBlob);
+    archivoPdf.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+    DriveApp.getFileById(copiaId).setTrashed(true);
+    return archivoPdf.getUrl();
+  }
+};
