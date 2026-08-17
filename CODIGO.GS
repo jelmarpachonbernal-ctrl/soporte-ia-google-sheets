@@ -1,0 +1,138 @@
+/************************************************************
+ * ==========================================================
+ * CONFIGURACIÓN PRINCIPAL
+ * GOOGLE SHEETS + GEMINI + GMAIL
+ * ==========================================================
+ ************************************************************/
+
+const GEMINI_API_KEY = "PEGA LA API AQUI LISTO";
+const GEMINI_MODEL = "gemini-2.5-flash";
+const NOMBRE_SISTEMA = "Soporte IA";
+const COLUMNA_RESPUESTA = "Respuesta Gemini";
+
+
+/************************************************************
+ * 1. GUARDAR API KEY
+ ************************************************************/
+function configurarAPIKey() {
+  if (!GEMINI_API_KEY || GEMINI_API_KEY === "PEGA_AQUI_TU_API_KEY_DE_GEMINI") {
+    throw new Error("ERROR: Debes colocar tu API Key real en la línea del código.");
+  }
+  PropertiesService.getScriptProperties().setProperty("GEMINI_API_KEY", GEMINI_API_KEY);
+  Logger.log("API KEY guardada correctamente.");
+}
+
+
+/************************************************************
+ * 2. CONEXIÓN CON LA API DE GEMINI
+ ************************************************************/
+function llamarGemini(prompt) {
+  const apiKey = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY");
+  if (!apiKey) return "ERROR GEMINI: Configura la API KEY.";
+
+  const url = "https://generativelanguage.googleapis.com/v1beta/models/" + GEMINI_MODEL + ":generateContent?key=" + apiKey;
+  const payload = { contents: [{ parts: [{ text: prompt }] }] };
+  const opciones = {
+    method: "post",
+    contentType: "application/json",
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  };
+
+  try {
+    const respuesta = UrlFetchApp.fetch(url, opciones);
+    const texto = respuesta.getContentText();
+    const resultado = JSON.parse(texto);
+
+    if (resultado.candidates && resultado.candidates[0].content.parts[0].text) {
+      return resultado.candidates[0].content.parts[0].text.trim();
+    }
+    return "ERROR GEMINI: No se obtuvo respuesta.";
+  } catch (error) {
+    return "ERROR GEMINI: " + error.message;
+  }
+}
+
+
+/************************************************************
+ * 3. PROCESAR SOLICITUD AUTOMÁTICA
+ ************************************************************/
+function procesarSolicitud(e) {
+  try {
+    if (!e || !e.namedValues) throw new Error("No hay datos del formulario.");
+
+    const datos = e.namedValues;
+    const correo = obtenerDato(datos, "gmail"); 
+    const nombre = obtenerDato(datos, "Nombre");
+    const tipoSolicitud = obtenerDato(datos, "vacaciones");
+    const justificacion = obtenerDato(datos, "justificacion");
+
+    if (!correo || correo.indexOf("@") === -1) {
+      throw new Error("Correo inválido o no encontrado en el campo 'gmail'.");
+    }
+
+    const prompt = "Actúa como un asistente profesional. Redacta una respuesta cordial para: " + tipoSolicitud + ". Justificación: " + justificacion + ". Responde en español.";
+
+    const respuestaGemini = llamarGemini(prompt);
+
+    guardarRespuestaEnHoja(e, respuestaGemini);
+    enviarCorreo(correo, nombre || "Usuario", respuestaGemini);
+
+    Logger.log("Proceso exitoso para: " + correo);
+  } catch (error) {
+    Logger.log("ERROR CRÍTICO: " + error.message);
+  }
+}
+
+
+/************************************************************
+ * FUNCIONES AUXILIARES
+ ************************************************************/
+
+function guardarRespuestaEnHoja(e, respuesta) {
+  if (!e || !e.range) return;
+  const hoja = e.range.getSheet();
+  const fila = e.range.getRow();
+  
+  let encabezados = hoja.getRange(1, 1, 1, hoja.getLastColumn()).getValues()[0];
+  let colIndex = encabezados.indexOf(COLUMNA_RESPUESTA) + 1;
+  
+  if (colIndex === 0) {
+    colIndex = hoja.getLastColumn() + 1;
+    hoja.getRange(1, colIndex).setValue(COLUMNA_RESPUESTA);
+  }
+  hoja.getRange(fila, colIndex).setValue(respuesta);
+}
+
+function enviarCorreo(correo, nombre, respuesta) {
+  GmailApp.sendEmail(correo, "Respuesta a su solicitud", "Estimado(a) " + nombre + ",\n\n" + respuesta + "\n\nCordialmente,\n" + NOMBRE_SISTEMA, {name: NOMBRE_SISTEMA});
+}
+
+function obtenerDato(datos, campo) {
+  return (datos && datos[campo]) ? String(datos[campo][0]).trim() : "";
+}
+
+function instalarActivadorFormulario() {
+  const triggers = ScriptApp.getProjectTriggers();
+  for (let i = 0; i < triggers.length; i++) ScriptApp.deleteTrigger(triggers[i]);
+  ScriptApp.newTrigger("procesarSolicitud").forSpreadsheet(SpreadsheetApp.getActiveSpreadsheet()).onFormSubmit().create();
+  Logger.log("Activador instalado.");
+}
+
+
+/************************************************************
+ * 4. PRUEBA MANUAL (Tests-gs.gs)
+ ************************************************************/
+function test_procesarSolicitud() {
+  const eventoSimulado = {
+    namedValues: {
+      "gmail": ["jelmarpachonbernal@gmail.com"],
+      "Nombre": ["Usuario Prueba"],
+      "vacaciones": ["Vacaciones"],
+      "justificacion": ["Prueba de funcionamiento del sistema"]
+    },
+    range: SpreadsheetApp.getActiveSpreadsheet().getActiveSheet().getActiveCell()
+  };
+
+  procesarSolicitud(eventoSimulado);
+}
