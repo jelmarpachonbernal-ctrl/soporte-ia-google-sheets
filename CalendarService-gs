@@ -1,0 +1,15 @@
+const CalendarService = {
+  registrarVacaciones: function(s) {
+    try {
+      const calendar = CalendarApp.getCalendarById(CONFIG.ID_CALENDARIO_EQUIPO);
+      const inicio = new Date(s.fechaInicio);
+      const fin = new Date(s.fechaFin);
+      fin.setDate(fin.getDate() + 1);
+      const evento = calendar.createAllDayEvent('Vacaciones: ' + s.nombre, inicio, fin);
+      evento.setDescription('Solicitud ' + s.id + ' aprobada por ' + s.aprobadorNombre);
+      LoggerService.info('registrarVacaciones', s.id, 'Evento creado');
+    } catch (err) {
+      LoggerService.error('registrarVacaciones', s.id, err);
+    }
+  }
+};
