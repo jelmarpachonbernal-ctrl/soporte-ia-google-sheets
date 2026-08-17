@@ -1,0 +1,79 @@
+const SheetsService = {
+  registrarSolicitud: function(s) {
+    const ss = SpreadsheetApp.openById(CONFIG.ID_HOJA_MAESTRA);
+    const hoja = ss.getSheetByName('01-Solicitudes');
+    hoja.appendRow([
+      s.id, s.timestamp, s.tipo, s.email, s.nombre, s.area,
+      s.fechaInicio, s.fechaFin, s.monto, s.justificacion,
+      s.aprobadorEmail || '', s.estado, '', '', ''
+    ]);
+  },
+
+  obtenerSolicitud: function(id) {
+    const ss = SpreadsheetApp.openById(CONFIG.ID_HOJA_MAESTRA);
+    const hoja = ss.getSheetByName('01-Solicitudes');
+    const data = hoja.getDataRange().getValues();
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === id) return _filaAObjeto(data[i]);
+    }
+    return null;
+  },
+
+  actualizarSolicitud: function(s) {
+    const ss = SpreadsheetApp.openById(CONFIG.ID_HOJA_MAESTRA);
+    const hoja = ss.getSheetByName('01-Solicitudes');
+    const data = hoja.getDataRange().getValues();
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === s.id) {
+        hoja.getRange(i + 1, 1, 1, 15).setValues([[
+          s.id, s.timestamp, s.tipo, s.email, s.nombre, s.area,
+          s.fechaInicio, s.fechaFin, s.monto, s.justificacion,
+          s.aprobadorEmail || '', s.estado,
+          s.fechaDecision || '', s.observaciones || '', s.urlPdf || ''
+        ]]);
+        return;
+      }
+    }
+  },
+
+  obtenerPendientes: function(diasUmbral) {
+    const ss = SpreadsheetApp.openById(CONFIG.ID_HOJA_MAESTRA);
+    const hoja = ss.getSheetByName('01-Solicitudes');
+    const data = hoja.getDataRange().getValues();
+    const umbral = new Date();
+    umbral.setDate(umbral.getDate() - diasUmbral);
+    const pendientes = [];
+    for (let i = 1; i < data.length; i++) {
+      const s = _filaAObjeto(data[i]);
+      if (s.estado === 'Pendiente' && new Date(s.timestamp) < umbral) {
+        pendientes.push(s);
+      }
+    }
+    return pendientes;
+  },
+
+  obtenerAprobador: function(area, monto) {
+    const ss = SpreadsheetApp.openById(CONFIG.ID_HOJA_MAESTRA);
+    const hoja = ss.getSheetByName('02-Aprobadores');
+    const data = hoja.getDataRange().getValues();
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === area) {
+        const umbral = parseFloat(data[i][5]) || Infinity;
+        if (monto > umbral) {
+          return { email: data[i][3], nombre: data[i][4], nivel: 'secundario' };
+        }
+        return { email: data[i][1], nombre: data[i][2], nivel: 'primario' };
+      }
+    }
+    return { email: CONFIG.CORREO_ADMIN, nombre: 'Admin System', nivel: 'default' };
+  }
+};
+
+function _filaAObjeto(fila) {
+  return {
+    id: fila[0], timestamp: fila[1], tipo: fila[2], email: fila[3],
+    nombre: fila[4], area: fila[5], fechaInicio: fila[6], fechaFin: fila[7],
+    monto: fila[8], justificacion: fila[9], aprobadorEmail: fila[10],
+    estado: fila[11], fechaDecision: fila[12], observaciones: fila[13], urlPdf: fila[14]
+  };
+}
