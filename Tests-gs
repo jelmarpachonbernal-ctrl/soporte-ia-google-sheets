@@ -1,0 +1,17 @@
+/************************************************************
+ * ARCHIVO: Tests-gs.gs
+ * PRUEBA MANUAL DE LA SOLICITUD
+ ************************************************************/
+function test_procesarSolicitud() {
+  const eventoSimulado = {
+    namedValues: {
+      "gmail": ["jelmarpachonbernal@gmail.com"],
+      "Nombre": ["Usuario Prueba"],
+      "vacaciones": ["Vacaciones"],
+      "justificacion": ["Prueba de funcionamiento del sistema"]
+    },
+    range: SpreadsheetApp.getActiveSpreadsheet().getActiveSheet().getActiveCell()
+  };
+
+  procesarSolicitud(eventoSimulado);
+}
