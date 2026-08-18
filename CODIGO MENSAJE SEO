@@ -1,0 +1,73 @@
+// ======================================================
+// 1. PEGA TU API KEY DE GEMINI AQUÍ
+// ======================================================
+const GEMINI_API_KEY = "----------------------------------------------";
+
+// ======================================================
+// 2. FUNCIÓN PRINCIPAL
+// ======================================================
+/**
+ * Genera una meta descripción SEO optimizada utilizando Google Gemini.
+ * @param {string} producto - Celda con el nombre o tema (ej. A2).
+ * @param {string} [instruccion] - Instrucción adicional opcional.
+ * @return {string} Meta descripción SEO completa.
+ * @customfunction
+ */
+function GEMINI_ACCION(producto, instruccion) {
+  if (!producto) return "";
+  
+  if (!GEMINI_API_KEY || GEMINI_API_KEY === "TU_GEMINI_API_KEY_AQUI") {
+    return "Error: Configura tu API Key en el script";
+  }
+
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+  
+  const systemPrompt = "Eres un especialista senior en SEO. " +
+    "Escribe una sola meta descripción SEO persuasiva y completa para Google. " +
+    "REGLAS:\n" +
+    "1. Longitud: Entre 135 y 155 caracteres.\n" +
+    "2. Incluye un llamado a la acción claro (CTA).\n" +
+    "3. Devuelve ÚNICAMENTE la frase completa terminada en punto, sin comillas ni explicaciones.";
+
+  const userPrompt = `Producto: "${producto}". ${instruccion || ""}`;
+
+  const payload = {
+    contents: [
+      {
+        parts: [
+          {
+            text: `${systemPrompt}\n\n${userPrompt}`
+          }
+        ]
+      }
+    ],
+    generationConfig: {
+      temperature: 0.6,
+      maxOutputTokens: 800 // Cupo amplio para que no corte la respuesta
+    }
+  };
+
+  const options = {
+    method: "post",
+    contentType: "application/json",
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  };
+
+  try {
+    const response = UrlFetchApp.fetch(endpoint, options);
+    const json = JSON.parse(response.getContentText());
+
+    if (json.error) {
+      return `Error Gemini: ${json.error.message}`;
+    }
+
+    if (json.candidates && json.candidates.length > 0 && json.candidates[0].content) {
+      return json.candidates[0].content.parts[0].text.trim().replace(/^["']|["']$/g, '');
+    }
+
+    return "Sin respuesta generada";
+  } catch (error) {
+    return `Error: ${error.message}`;
+  }
+}
