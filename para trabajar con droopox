@@ -1,0 +1,100 @@
+var GEMINI_API_KEY = "-----------------------------------------------------------------------"; // Tu API Key de Gemini
+
+function procesarHojaConGeminiYSubirADropbox() {
+  // Configuración
+  var sheetId = "1GT2dc0dOkAC1apY0UlTKY9vitBl8PtKrILvFiAy5VBs";
+  
+  // REEMPLAZA ESTE TOKEN con el copiado completo desde Dropbox (debe ser más largo que el anterior)
+  var dropboxAccessToken = "PEGA_AQUI_EL_TOKEN_COMPLETO"; 
+  
+  var dropboxPath = "/my-sheets/prices_analizado.xlsx";
+  
+  // 1. Leer los datos de Google Sheets
+  var ss = SpreadsheetApp.openById(sheetId);
+  var sheet = ss.getSheets()[0];
+  var rangoDatos = sheet.getDataRange().getValues();
+  
+  var contenidoTexto = JSON.stringify(rangoDatos);
+  var promptGemini = "Analiza los siguientes datos de precios de una hoja de cálculo y dame un resumen breve o sugerencias en español:\n\n" + contenidoTexto;
+  
+  // 2. Consultar a la API de Gemini
+  var respuestaGemini = consultarGemini(promptGemini);
+  Logger.log("Respuesta de Gemini: " + respuestaGemini);
+  
+  // 3. Exportar la hoja de cálculo como archivo Excel (.xlsx)
+  var exportUrl = "https://docs.google.com/spreadsheets/d/" + sheetId + "/export?format=xlsx";
+  var options = {
+    method: "get",
+    headers: {
+      "Authorization": "Bearer " + ScriptApp.getOAuthToken()
+    },
+    muteHttpExceptions: true
+  };
+  
+  var response = UrlFetchApp.fetch(exportUrl, options);
+  if (response.getResponseCode() !== 200) {
+    Logger.log("Error al exportar la hoja: " + response.getContentText());
+    return;
+  }
+  var blob = response.getBlob().setName("prices.xlsx");
+  
+  // 4. Subir el archivo Excel a Dropbox
+  var uploadUrl = "https://content.dropboxapi.com/2/files/upload";
+  var apiArg = {
+    "path": dropboxPath,
+    "mode": "overwrite",
+    "autorename": false,
+    "mute": false
+  };
+  
+  var uploadOptions = {
+    method: "post",
+    headers: {
+      "Authorization": "Bearer " + dropboxAccessToken,
+      "Dropbox-Api-Arg": JSON.stringify(apiArg),
+      "Content-Type": "application/octet-stream"
+    },
+    payload: blob.getBytes(),
+    muteHttpExceptions: true
+  };
+  
+  var uploadResponse = UrlFetchApp.fetch(uploadUrl, uploadOptions);
+  if (uploadResponse.getResponseCode() === 200) {
+    Logger.log("Archivo subido exitosamente a Dropbox y procesado con Gemini.");
+  } else {
+    Logger.log("Error al subir a Dropbox: " + uploadResponse.getContentText());
+  }
+}
+
+function consultarGemini(prompt) {
+  // Se actualiza el endpoint al modelo gemini-3.6-flash
+  var url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=" + GEMINI_API_KEY;
+  
+  var payload = {
+    "contents": [{
+      "parts": [{
+        "text": prompt
+      }]
+    }]
+  };
+  
+  var options = {
+    "method": "post",
+    "contentType": "application/json",
+    "payload": JSON.stringify(payload),
+    "muteHttpExceptions": true
+  };
+  
+  try {
+    var response = UrlFetchApp.fetch(url, options);
+    var resultado = JSON.parse(response.getContentText());
+    
+    if (resultado.candidates && resultado.candidates[0].content && resultado.candidates[0].content.parts[0].text) {
+      return resultado.candidates[0].content.parts[0].text;
+    } else {
+      return "No se pudo obtener respuesta de Gemini: " + response.getContentText();
+    }
+  } catch (e) {
+    return "Excepción al conectar con Gemini: " + e.toString();
+  }
+}
